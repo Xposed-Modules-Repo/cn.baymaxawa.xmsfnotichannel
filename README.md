@@ -1,37 +1,91 @@
 # 通知哨兵 · NotiSentry
 
-[![libxposed](https://img.shields.io/badge/libxposed-API%20102-0a7ea4?style=flat-square)](https://github.com/libxposed/api)
-[![Android](https://img.shields.io/badge/Android-13%2B-3ddc84?style=flat-square&logo=android&logoColor=white)](https://developer.android.com)
-[![Kotlin](https://img.shields.io/badge/Kotlin-2.4-7f52ff?style=flat-square&logo=kotlin&logoColor=white)](https://kotlinlang.org)
-[![Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285f4?style=flat-square&logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
-[![Miuix](https://img.shields.io/badge/Miuix-0.9.4-ff6900?style=flat-square)](https://github.com/miuix-kotlin-multiplatform/miuix)
-[![License](https://img.shields.io/badge/License-AGPL--3.0-blue?style=flat-square)](LICENSE)
-
 一键管理所有应用的**运营消息 / 营销推广 / 活动推荐**类通知通道。仅支持 MIUI / HyperOS。
 
-## 使用
+[下载 APK](https://github.com/Aruvelut-123/XMSFNotiChannel/releases) · [反馈问题](https://github.com/Aruvelut-123/XMSFNotiChannel/issues) · [源代码](https://github.com/Aruvelut-123/XMSFNotiChannel)
 
-1. 在 LSPosed 中启用模块，作用域勾选「系统框架」
-2. 重启手机
-3. 授予「查询所有应用」权限（`QUERY_ALL_PACKAGES`）
+## 它解决什么问题
 
-第 3 步别漏——Android 11+ 默认只能看到很少的包，未授权时扫描结果几乎为空。
+现在的 App 越来越喜欢把广告塞进通知栏：签到提醒、限时活动、会员专享、猜你喜欢、直播开播、新歌推送……这些通知通常不会叫「广告」，而是挂在「运营消息」「个性化推荐」「活动中心」这类看起来还算正经的通道下。
+
+系统级屏蔽要么一刀切（整个 App 的通知全关，验证码和聊天一起没了），要么靠关键词猜文案（App 换个说法就漏）。通知哨兵从**通道**这一层下手：读取每个应用的通知通道清单，按关键词识别出营销类通道并直接关闭，正常通道原样保留。
+
+关掉的是通道，不是消息，验证码、支付、聊天、设备提醒都不受影响。
 
 ## 功能
 
-- **概览**：模块状态、通道统计、设备信息
-- **功能**：按应用分组列出匹配到的通道，支持搜索与单条开关，右上角菜单一键全开 / 全关
-- **应用详情**：逐条切换某个应用的全部通道
-- **通道导出**：列出全部已安装应用，导出其完整通知通道表为 JSON，便于分析
-- **设置**：自定义规则、主题、悬浮底栏、液态玻璃、模糊、语言、配置导入导出
+### 概览
 
-## 环境
+- 模块激活状态、作用域是否勾选
+- 已扫描应用数、匹配通道数、已关闭通道数
+- 设备与环境信息（系统版本、Android API 等级等）
+
+### 功能页
+
+- 按应用分组列出所有**已匹配到营销通道**的应用，只显示真正有广告的，不刷屏
+- 每个应用显示「已关闭 / 总数」，一眼看出哪些还没处理
+- 顶部搜索框，按应用名或包名过滤
+- 单条通道独立开关，可以只关某一条
+- 右上角菜单一键全开 / 全关
+- 检测结果缓存在进程内，切到设置页再回来不会清空
+
+### 应用详情
+
+- 展开某个应用的全部通道
+- 显示通道名、通道 ID、重要性等级、当前开关状态
+- 逐条切换，支持整组操作
+
+### 通道导出
+
+- 列出设备上全部已安装应用
+- 把任意应用的通知通道表导出成 JSON（通道 ID、名称、重要性、开关）
+- 遇到漏拦时把这份 JSON 附在 Issue 里，是最快的定位方式
+
+### 设置
+
+- **自定义规则**：自定义关键词表，支持增删改，热生效
+- **主题**：跟随系统 / 浅色 / 深色，可选 Monet 取色
+- **界面**：悬浮底栏、液态玻璃效果、模糊强度
+- **语言**：简体中文 / English
+- **配置导入导出**：规则与设置打包成 JSON，方便换机或备份
+
+## 使用
+
+1. 在 LSPosed 中启用模块，**作用域勾选「系统框架」**（`android`）
+2. 重启手机
+3. 打开通知哨兵，授予「查询所有应用」权限
+4. 进入功能页，等待扫描完成，按需开关通道
+
+第 3 步很容易漏掉。Android 11 之后默认只能看到极少数应用包，权限没给或没生效时，扫描结果会是空的或者只有两三个应用。遇到这种情况先在系统设置里确认权限状态，再回到应用点一次「重新检测」。
+
+修改通道开关是即时生效的，不需要重启。升级模块后如果新关键词没生效，点一次「重新检测」或杀掉应用重启即可。
+
+## 匹配原理
+
+模块通过 LSPosed 在系统框架进程中挂钩 `INotificationManager`，读取各应用的通知通道数据。通道名和通道 ID 会经过两层词表：
+
+- **识别词表**：运营消息、营销推广、活动、推荐、商城、签到、会员、直播、个性化推送、运营通道……
+- **排除词表**：验证码、校验码、支付、订单、物流、聊天、通话、安全提醒等功能性词
+
+命中识别词且未命中排除词的通道，会被标记为营销通道。所有匹配结果在本地计算，不联网、不上传、不收集任何数据。
+
+由于不同系统版本的 `INotificationManager` 方法签名存在差异（Android 17 上就有改动），模块采用动态枚举方法名并自动填充实参的方式调用，以兼容签名变化。
+
+## 适用环境
+
+- 系统：MIUI / HyperOS（依赖 MIUI 的通知通道实现，其他 ROM 未验证）
+- Android：13 及以上
+- 框架：LSPosed
 
 已在 REDMI K80 Pro（HyperOS 4.0.0.10 / Android 17）+ LSPosed 实测通过。
 
 ## 排错
 
-先确认模块已激活、作用域已勾选、已授予「查询所有应用」权限。仍不行请附 LSPosed 日志提 Issue。
+**扫描结果为空**：先确认模块已激活、作用域勾选了「系统框架」、已授予「查询所有应用」权限。三项都正常仍然为空，请附 LSPosed 日志提 Issue。
+
+**某些广告没被拦**：在应用详情里找到那条通道，用通道导出功能保存 JSON，把通道名和通道 ID 一起贴出来。多数情况是通道名用了新的营销说法，补进词表就能解决。
+
+**点击按钮没反应 / 弹窗不显示**：请上报系统版本与复现步骤。
 
 ## 致谢
 
@@ -45,4 +99,4 @@
 
 ## 许可
 
-[AGPL-3.0](LICENSE)
+[AGPL-3.0](https://github.com/Aruvelut-123/XMSFNotiChannel/blob/master/LICENSE)
